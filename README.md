@@ -36,6 +36,7 @@ This application follows **Domain-Driven Design (DDD)** principles to create a m
    - Contains the core business logic and rules
    - Defines entities (like Job) and value objects (like JobType)
    - Technology-agnostic and has no dependencies on external frameworks
+   - Currently implemented only for the Job domain
 
 2. **Application Layer**:
    - Contains use cases that orchestrate the flow of data to and from the domain entities
@@ -52,7 +53,7 @@ This application follows **Domain-Driven Design (DDD)** principles to create a m
    - Routes to different pages and components
    - Implements responsive design and accessibility features
 
-This separation of concerns makes the application more maintainable, testable, and adaptable to changes.
+**Note on Authentication:** This application uses Supabase Auth directly through the `lib/auth.ts` and `lib/auth-client.ts` utilities, rather than implementing a domain layer for user authentication. This approach was chosen for simplicity and to leverage Supabase's built-in authentication features.
 
 ## Complete Project Structure
 
@@ -120,35 +121,24 @@ The project follows a Domain-Driven Design (DDD) approach with a clear separatio
 │           └── ThemeProvider.test.tsx
 │
 ├── domains/                      # Domain-Driven Design core
-│   ├── job/                      # Job domain
-│   │   ├── application/          # Application layer
-│   │   │   ├── dtos.ts           # Data transfer objects
-│   │   │   └── use-cases/        # Business operations
-│   │   │       ├── create-job.ts
-│   │   │       ├── delete-job.ts
-│   │   │       ├── get-job-by-id.ts
-│   │   │       └── search-jobs.ts
-│   │   ├── domain/               # Domain layer (core)
-│   │   │   ├── entities.ts       # Job entity definition
-│   │   │   ├── value-objects.ts  # Value objects (JobType, etc.)
-│   │   │   └── __tests__/        # Domain tests
-│   │   │       ├── entities.test.ts
-│   │   │       └── value-objects.test.ts
-│   │   └── infrastructure/       # External integrations
-│   │       ├── job-repository.ts # Repository interface
-│   │       └── supabase/         # Supabase implementation
-│   │           └── job-repository-impl.ts
-│   │
-│   └── user/                     # User domain
+│   └── job/                      # Job domain
 │       ├── application/          # Application layer
+│       │   ├── dtos.ts           # Data transfer objects
 │       │   └── use-cases/        # Business operations
-│       │       └── get-current-user.ts
-│       ├── domain/               # Domain layer
-│       │   └── entities.ts       # User entity definition
+│       │       ├── create-job.ts
+│       │       ├── delete-job.ts
+│       │       ├── get-job-by-id.ts
+│       │       └── search-jobs.ts
+│       ├── domain/               # Domain layer (core)
+│       │   ├── entities.ts       # Job entity definition
+│       │   ├── value-objects.ts  # Value objects (JobType, etc.)
+│       │   └── __tests__/        # Domain tests
+│       │       ├── entities.test.ts
+│       │       └── value-objects.test.ts
 │       └── infrastructure/       # External integrations
-│           ├── supabase/         # Supabase implementation
-│           │   └── user-repository-impl.ts
-│           └── user-repository.ts # Repository interface
+│           ├── job-repository.ts # Repository interface
+│           └── supabase/         # Supabase implementation
+│               └── job-repository-impl.ts
 │
 ├── lib/                          # Shared utilities
 │   ├── auth-client.ts            # Client-side auth helpers
@@ -165,6 +155,10 @@ The project follows a Domain-Driven Design (DDD) approach with a clear separatio
 │
 ├── styles/                       # Additional styles
 │   └── globals.css               # Global styles
+│
+├── .github/                      # GitHub configuration
+│   └── workflows/                # GitHub Actions workflows
+│       └── build.yml             # CI build workflow
 │
 ├── .env.local                    # Environment variables
 ├── .eslintrc.json                # ESLint configuration

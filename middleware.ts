@@ -14,9 +14,16 @@ export async function middleware(request: NextRequest) {
     '/images', // Image files
     '/favicon.ico', // Favicon
     '/debug', // Debug routes
+    '/.well-known/', // Well-known URLs (used by browsers)
+    '/manifest.json', // PWA manifest
   ];
   
   if (publicPaths.some(path => pathname.startsWith(path))) {
+    return res;
+  }
+  
+  // Skip middleware for browser DevTools requests
+  if (pathname.includes('devtools') || pathname.includes('chrome-extension')) {
     return res;
   }
 
@@ -77,7 +84,12 @@ export async function middleware(request: NextRequest) {
   }
 }
 
-// Only run middleware on these paths
+// Only run middleware on these paths, exclude browser-specific paths
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.svg).*)'],
+  matcher: [
+    // Match all paths except static files and browser-specific resources
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.svg|.*\\.png|.*\\.jpg|.*\\.ico|.*\\.woff|.*\\.woff2).*)',
+    // Explicitly exclude DevTools paths
+    '/((?!\\.well-known/.*|.*\\.json).*)',
+  ],
 }; 

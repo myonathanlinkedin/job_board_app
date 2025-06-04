@@ -105,7 +105,46 @@ export default function Navbar() {
         </Link>
         
         <div className="flex items-center md:order-2 space-x-3">
-          <ThemeToggle />
+          {/* Theme toggle with error handling */}
+          <div className="relative">
+            {(() => {
+              try {
+                return <ThemeToggle />;
+              } catch (error) {
+                console.error('Error rendering ThemeToggle:', error);
+                return (
+                  <button
+                    onClick={() => {
+                      try {
+                        // Direct DOM manipulation as fallback
+                        const html = document.documentElement;
+                        html.classList.toggle('dark');
+                        html.classList.toggle('light');
+                      } catch (e) {
+                        console.error('Fallback theme toggle failed:', e);
+                      }
+                    }}
+                    className="w-10 h-10 flex items-center justify-center rounded-md border"
+                    aria-label="Toggle theme (fallback)"
+                  >
+                    <svg 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      width="24" 
+                      height="24" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth="2"
+                      className="w-5 h-5"
+                    >
+                      <circle cx="12" cy="12" r="5" />
+                      <path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" />
+                    </svg>
+                  </button>
+                );
+              }
+            })()}
+          </div>
           
           {loading ? (
             <div className="h-10 w-20 animate-pulse bg-gray-200 dark:bg-gray-700 rounded"></div>
