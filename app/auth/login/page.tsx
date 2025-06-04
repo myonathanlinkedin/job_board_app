@@ -16,7 +16,9 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Get error from URL if present
+  // Get error and redirect from URL if present
+  const redirect = searchParams.get('redirect') || '/dashboard';
+  
   useEffect(() => {
     const urlError = searchParams.get('error');
     if (urlError) {
@@ -30,8 +32,9 @@ export default function LoginPage() {
       try {
         const session = await auth.getSession();
         if (session) {
-          console.log('User already has a session, redirecting to dashboard');
-          window.location.href = '/auth/dashboard-redirect';
+          console.log('User already has a session, redirecting to dashboard or requested page');
+          // Use the redirect from URL or default to dashboard
+          window.location.href = redirect;
         }
       } catch (err) {
         console.error('Error checking auth state:', err);
@@ -39,7 +42,7 @@ export default function LoginPage() {
     }
     
     checkAuth();
-  }, [router]);
+  }, [redirect]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -52,7 +55,7 @@ export default function LoginPage() {
       console.log('Attempting login with email:', email);
       
       // Sign in using our helper
-      const data = await auth.signIn(email, password);
+      const data = await auth.signIn(email, password, redirect);
       console.log('Login successful:', data);
       
       if (data?.session) {
@@ -64,8 +67,8 @@ export default function LoginPage() {
           user: data.user
         });
         
-        // Use our dedicated redirect page
-        window.location.href = '/auth/dashboard-redirect';
+        // Redirect to the requested page or dashboard
+        window.location.href = redirect;
       }
     } catch (error: any) {
       console.error('Login error details:', error);
@@ -97,10 +100,10 @@ export default function LoginPage() {
               <p className="mt-2 text-gray-500 dark:text-gray-400">Redirecting to dashboard...</p>
               <div className="mt-4">
                 <a 
-                  href="/auth/dashboard-redirect"
+                  href={redirect}
                   className="btn-primary inline-block"
                 >
-                  Go to Dashboard Now
+                  Continue
                 </a>
               </div>
             </div>

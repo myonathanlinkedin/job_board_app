@@ -40,9 +40,10 @@ export async function getSession() {
  * Signs in with email and password
  * @param email The user's email
  * @param password The user's password
+ * @param redirectTo Optional path to redirect after login
  * @returns An object with the user and session if successful
  */
-export async function signIn(email: string, password: string) {
+export async function signIn(email: string, password: string, redirectTo?: string) {
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,

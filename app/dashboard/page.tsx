@@ -1,11 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { Icons } from '@/components/ui/Icons';
-import * as auth from '@/lib/auth-client';
+import JobList from '@/components/dashboard/JobList';
+
+interface Job {
+  id: string;
+  title: string;
+  company: string;
+  created_at: string;
+  [key: string]: any; // Allow other properties
+}
 
 // Metadata needs to be in a separate layout.tsx file for client components
 // export const metadata = {
@@ -14,211 +21,119 @@ import * as auth from '@/lib/auth-client';
 // };
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<any>(null);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
-  const [jobs, setJobs] = useState<any[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // For debugging
   useEffect(() => {
-    console.log("Dashboard page mounted");
-    return () => console.log("Dashboard page unmounted");
-  }, []);
-
-  // Use a more resilient auth check approach
-  useEffect(() => {
-    let mounted = true;
-
-    async function checkSession() {
+    async function loadJobs() {
+      setLoading(true);
+      
       try {
-        setLoading(true);
-        console.log("Checking session in dashboard...");
+        // Check authentication status
+        const { data: { session } } = await supabase.auth.getSession();
+        setIsAuthenticated(!!session);
         
-        // First try to get session using our helper
-        const session = await auth.getSession();
-        console.log("Session check result:", !!session);
-        
-        if (!session) {
-          // No session found, try refreshing session
-          console.log("No session found, trying to refresh...");
-          const { data, error } = await supabase.auth.refreshSession();
-          console.log("Refresh result:", { success: !!data.session, error: !!error });
-          
-          if (error || !data.session) {
-            console.log('No valid session found after refresh, redirecting to login');
-            throw new Error('Authentication required');
-          }
-        }
-        
-        // Now get the user
-        const currentUser = await auth.getUser();
-        console.log("Got user result:", !!currentUser);
-        
-        if (!currentUser) {
-          throw new Error('User not found');
-        }
-        
-        if (mounted) {
-          console.log('User authenticated:', currentUser);
-          setUser(currentUser);
-          
-          // Fetch user's jobs
-          console.log("Fetching jobs for user:", currentUser.id);
-          const { data: jobsData, error: jobsError } = await supabase
+        // Get jobs from the current user if authenticated
+        if (session?.user) {
+          const { data } = await supabase
             .from('jobs')
             .select('*')
-            .eq('user_id', currentUser.id)
+            .eq('user_id', session.user.id)
             .order('created_at', { ascending: false });
           
-          if (jobsError) {
-            console.error('Error fetching jobs:', jobsError);
-          } else {
-            console.log("Jobs fetched:", jobsData?.length || 0);
-            setJobs(jobsData || []);
-          }
+          setJobs(data || []);
+        } else {
+          // Just show an empty list if not authenticated
+          setJobs([]);
         }
-      } catch (error: any) {
-        console.error('Dashboard authentication error:', error.message);
-        if (mounted) {
-          setError('You need to log in to view this page');
-          // Add delay to avoid immediate redirection
-          setTimeout(() => {
-            window.location.href = '/auth/login';
-          }, 1500);
-        }
+      } catch (error) {
+        console.error('Error loading jobs:', error);
       } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     }
     
-    checkSession();
-    
-    return () => {
-      mounted = false;
-    };
+    loadJobs();
   }, []);
-  
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <Icons.Search className="w-10 h-10 mx-auto animate-spin text-blue-500" />
-          <p className="mt-4 text-lg">Loading your dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  if (error) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center p-6 bg-red-50 dark:bg-red-900/20 rounded-lg max-w-md mx-auto">
-          <Icons.Close className="w-10 h-10 mx-auto text-red-500" />
-          <p className="mt-4 text-lg text-red-600 dark:text-red-400">{error}</p>
-          <div className="mt-6">
-            <a href="/auth/login" className="btn-primary">
-              Go to Login
-            </a>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center p-6 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg max-w-md mx-auto">
-          <p className="mt-4 text-lg text-yellow-600 dark:text-yellow-400">User information not found. Try refreshing the page.</p>
-          <div className="mt-6">
-            <button 
-              onClick={() => window.location.reload()} 
-              className="btn-primary"
-            >
-              Refresh
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-        <Link href="/dashboard/jobs/new" className="btn-primary">
-          Post a New Job
-        </Link>
-      </div>
-      
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">My Job Listings</h2>
-        
-        {jobs.length === 0 ? (
-          <div className="text-center py-12">
-            <Icons.Briefcase className="w-12 h-12 mx-auto text-gray-400" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">No job listings yet</h3>
-            <p className="mt-2 text-gray-500 dark:text-gray-400">Get started by posting your first job listing.</p>
-            <div className="mt-6">
-              <Link href="/dashboard/jobs/new" className="btn-primary">
-                Post a Job
-              </Link>
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
+      {!isAuthenticated && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                You are viewing the dashboard in demo mode. To create or manage jobs, please <Link href="/auth/login" className="font-medium underline text-yellow-700 hover:text-yellow-600">log in</Link>.
+              </p>
             </div>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Job Title
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Company
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Date Posted
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {jobs.map((job) => (
-                  <tr key={job.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">{job.title}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500 dark:text-gray-400">{job.company}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {new Date(job.created_at).toLocaleDateString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex space-x-2">
-                        <Link href={`/dashboard/jobs/${job.id}/edit`} className="text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
-                          Edit
-                        </Link>
-                        <Link href={`/jobs/${job.id}`} className="text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300">
-                          View
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        </div>
+      )}
+      
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Your Job Listings</h1>
+        <Link 
+          href="/dashboard/jobs/new"
+          className="btn-primary"
+        >
+          Post New Job
+        </Link>
       </div>
+
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="inline-block animate-spin h-8 w-8 border-4 border-gray-300 dark:border-gray-600 border-t-blue-600 rounded-full" />
+          <p className="mt-4 text-gray-500 dark:text-gray-400">Loading your jobs...</p>
+        </div>
+      ) : (
+        <JobList jobs={jobs} isLoading={loading} />
+      )}
+      
+      {!loading && jobs.length === 0 && (
+        <div className="text-center py-12 bg-white dark:bg-gray-800 shadow rounded-lg">
+          <svg
+            className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
+          </svg>
+          <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-white">No jobs yet</h3>
+          <p className="mt-1 text-gray-500 dark:text-gray-400">Get started by creating a new job listing.</p>
+          <div className="mt-6">
+            <Link
+              href="/dashboard/jobs/new"
+              className="btn-primary inline-flex items-center"
+            >
+              <svg
+                className="-ml-1 mr-2 h-5 w-5"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Post New Job
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

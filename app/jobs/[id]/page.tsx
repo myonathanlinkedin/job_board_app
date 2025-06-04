@@ -1,5 +1,8 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { JobEntity } from '@/domains/job/domain/entities';
 import { Location, JobType } from '@/domains/job/domain/value-objects';
@@ -9,76 +12,149 @@ type Props = {
   params: { id: string };
 };
 
-// Generate metadata for the page
-export async function generateMetadata({ params }: Props) {
-  const { data } = await supabase
-    .from('jobs')
-    .select('title, company')
-    .eq('id', params.id)
-    .single();
-
-  if (!data) {
-    return {
-      title: 'Job Not Found',
-    };
-  }
-
-  return {
-    title: `${data.title} at ${data.company} | Job Board`,
-    description: `View details for ${data.title} position at ${data.company}`,
-  };
-}
-
-export default async function JobDetailPage({ params }: Props) {
+export default function JobDetailPage({ params }: Props) {
+  const router = useRouter();
   const { id } = params;
+  const [job, setJob] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [formattedDate, setFormattedDate] = useState<string>('');
   
-  const { data, error } = await supabase
-    .from('jobs')
-    .select('*, profiles(*)') // Join with profiles table to get company info
-    .eq('id', id)
-    .single();
-  
-  if (error || !data) {
-    notFound();
-  }
-  
-  // Convert database record to domain entity
-  const jobEntity = new JobEntity({
-    id: data.id,
-    title: data.title,
-    company: data.company,
-    description: data.description,
-    salary: data.salary,
-    location: new Location({
-      city: data.location?.city,
-      country: data.location?.country,
-      isRemote: data.location?.isRemote ?? false,
-    }),
-    type: data.type as JobType,
-    applyUrl: data.apply_url,
-    createdAt: new Date(data.created_at),
-    updatedAt: new Date(data.updated_at),
-    userId: data.user_id,
-  });
-  
-  // Map entity to DTO for presentation
-  const job = mapToJobDto(jobEntity);
-  
-  // Format date for display
-  const formattedDate = new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'long', 
-    day: 'numeric',
-  }).format(new Date(job.createdAt));
-  
-  const jobTypeBadgeColors = {
-    [JobType.FULL_TIME]: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-    [JobType.PART_TIME]: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-    [JobType.CONTRACT]: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
-    [JobType.INTERNSHIP]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-    [JobType.FREELANCE]: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+  const jobTypeBadgeColors: Record<string, string> = {
+    "FULL_TIME": 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+    "PART_TIME": 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+    "CONTRACT": 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
+    "INTERNSHIP": 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+    "FREELANCE": 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
   };
   
+  useEffect(() => {
+    async function loadJob() {
+      try {
+        setLoading(true);
+        console.log('Loading job with ID:', id);
+        
+        const { data, error } = await supabase
+          .from('jobs')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (error) {
+          console.error('Error fetching job:', error);
+          setError(error.message || 'Failed to load job details');
+          return;
+        }
+        
+        if (!data) {
+          console.error('No job data found');
+          setError('Job not found');
+          return;
+        }
+        
+        console.log('Job data loaded:', data);
+        
+        // Convert database record to domain entity
+        const jobEntity = new JobEntity({
+          id: data.id,
+          title: data.title,
+          company: data.company,
+          description: data.description,
+          salary: data.salary,
+          location: new Location({
+            city: data.location?.city,
+            country: data.location?.country,
+            isRemote: data.location?.isRemote ?? false,
+          }),
+          type: data.type as JobType,
+          applyUrl: data.apply_url,
+          createdAt: new Date(data.created_at),
+          updatedAt: new Date(data.updated_at),
+          userId: data.user_id,
+        });
+        
+        // Map entity to DTO for presentation
+        const jobDto = mapToJobDto(jobEntity);
+        setJob(jobDto);
+        
+        // Format date for display
+        const formatted = new Intl.DateTimeFormat('en-US', {
+          year: 'numeric',
+          month: 'long', 
+          day: 'numeric',
+        }).format(new Date(jobDto.createdAt));
+        
+        setFormattedDate(formatted);
+      } catch (err) {
+        console.error('Error in job loading process:', err);
+        setError('An error occurred while loading the job details');
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    loadJob();
+  }, [id]);
+  
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="text-center">
+          <div className="inline-block animate-spin h-8 w-8 border-4 border-gray-300 dark:border-gray-600 border-t-blue-600 rounded-full" />
+          <p className="mt-4 text-gray-500 dark:text-gray-400">Loading job details...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="mb-6">
+          <Link href="/jobs" className="text-blue-600 dark:text-blue-400 hover:underline flex items-center">
+            <svg className="mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Jobs
+          </Link>
+        </div>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-lg p-6">
+          <h1 className="text-xl font-medium text-red-800 dark:text-red-500">Error</h1>
+          <p className="mt-2 text-red-700 dark:text-red-400">{error}</p>
+          <div className="mt-6">
+            <button
+              onClick={() => router.back()}
+              className="btn-secondary"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!job) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="mb-6">
+          <Link href="/jobs" className="text-blue-600 dark:text-blue-400 hover:underline flex items-center">
+            <svg className="mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Jobs
+          </Link>
+        </div>
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-900/30 rounded-lg p-6">
+          <h1 className="text-xl font-medium text-yellow-800 dark:text-yellow-500">Job Not Found</h1>
+          <p className="mt-2 text-yellow-700 dark:text-yellow-400">
+            This job listing doesn't exist or has been removed.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="mb-6">
