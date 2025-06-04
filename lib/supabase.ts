@@ -15,5 +15,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storageKey: 'job-board-auth-token',
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    debug: true, // Enable debug logging for auth
   }
-}); 
+});
+
+// Add auth state change listener for debugging
+if (typeof window !== 'undefined') {
+  supabase.auth.onAuthStateChange((event, session) => {
+    console.log('Supabase auth event:', event, session);
+  });
+} 

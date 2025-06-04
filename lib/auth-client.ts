@@ -107,4 +107,53 @@ export async function signUp(email: string, password: string, userData: object =
     console.error('Unexpected error during sign up:', error);
     throw error;
   }
+}
+
+/**
+ * Resets the user's password
+ * @param email The user's email
+ * @param redirectTo The URL to redirect to after the password reset
+ * @returns A promise that resolves when the password reset email is sent
+ */
+export async function resetPassword(email: string, redirectTo: string) {
+  try {
+    console.log(`Requesting password reset for ${email} with redirect to ${redirectTo}`);
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+    
+    if (error) {
+      console.error('Error requesting password reset:', error.message);
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Unexpected error during password reset request:', error);
+    throw error;
+  }
+}
+
+/**
+ * Updates the user's password
+ * @param newPassword The new password
+ * @returns A promise that resolves when the password is updated
+ */
+export async function updatePassword(newPassword: string) {
+  try {
+    console.log('Updating password');
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+    
+    if (error) {
+      console.error('Error updating password:', error.message);
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Unexpected error during password update:', error);
+    throw error;
+  }
 } 

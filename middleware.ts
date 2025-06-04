@@ -50,7 +50,7 @@ export async function middleware(request: NextRequest) {
     console.log('Middleware path:', pathname, 'Session exists:', !!session);
     
     // Protected routes that require authentication
-    const protectedRoutes = ['/dashboard', '/profile', '/jobs/new'];
+    const protectedRoutes = ['/dashboard', '/jobs/new'];
     const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
     
     // Auth routes - redirect to dashboard if already signed in

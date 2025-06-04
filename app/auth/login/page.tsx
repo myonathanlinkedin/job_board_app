@@ -158,7 +158,49 @@ export default function LoginPage() {
             <div>
               <label htmlFor="password" className="form-label flex justify-between">
                 <span>Password</span>
-                <Link href="#" className="text-xs font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
+                <Link 
+                  href="#" 
+                  className="text-xs font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (!email) {
+                      setError('Please enter your email address first');
+                      return;
+                    }
+                    
+                    try {
+                      setLoading(true);
+                      setError(null);
+                      
+                      const redirectTo = `${window.location.origin}/auth/callback?type=recovery`;
+                      
+                      // Use the auth helper to request password reset with required redirect parameter
+                      auth.resetPassword(email, redirectTo)
+                        .then(() => {
+                          if (typeof window !== 'undefined' && window.showToast) {
+                            window.showToast({
+                              message: `Password reset email sent to ${email}. Please check your inbox.`,
+                              type: 'success',
+                              duration: 8000
+                            });
+                          } else {
+                            // Fallback to alert if toast is not available
+                            alert(`Password reset email sent to ${email}. Please check your inbox.`);
+                          }
+                        })
+                        .catch((err) => {
+                          console.error('Error sending reset email:', err);
+                          setError(`Failed to send password reset: ${err.message}`);
+                        })
+                        .finally(() => {
+                          setLoading(false);
+                        });
+                    } catch (err: any) {
+                      setError(`Error: ${err.message}`);
+                      setLoading(false);
+                    }
+                  }}
+                >
                   Forgot password?
                 </Link>
               </label>

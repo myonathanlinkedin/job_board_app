@@ -86,7 +86,7 @@ export default function Navbar() {
   // User dropdown menu items when authenticated
   const userDropdownItems = user ? [
     { label: 'Dashboard', href: '/dashboard' },
-    { label: 'My Profile', href: '/profile' },
+    { label: 'Change Password', href: '/auth/reset-password' },
     { label: 'Debug Auth', href: '/debug/auth-status' },
     { label: 'Sign out', onClick: handleSignOut }
   ] : [

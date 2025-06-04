@@ -1,13 +1,15 @@
+import './globals.css';
+import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import '../styles/globals.css';
+import { ToastContainer } from '@/components/ui/Toast';
 import Navbar from '@/components/ui/Navbar';
 import { ThemeProvider } from '@/components/ui/ThemeProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Job Board App',
-  description: 'Find your next job opportunity',
+  description: 'Find your next career opportunity',
   icons: {
     icon: '/logo.svg',
     shortcut: '/logo.svg',
@@ -70,6 +72,7 @@ export default function RootLayout({
             </main>
           </div>
         </ThemeProvider>
+        <ToastContainer />
       </body>
     </html>
   );
