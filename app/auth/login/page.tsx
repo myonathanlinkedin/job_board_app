@@ -64,14 +64,8 @@ export default function LoginPage() {
           user: data.user
         });
         
-        // First update local state
-        console.log('Login successful, redirecting to dashboard...');
-        
-        // Add a brief delay before redirecting to ensure auth state is propagated
-        setTimeout(() => {
-          router.push('/dashboard');
-          router.refresh();
-        }, 1000);
+        // Use hard navigation instead of client-side routing for proper page reload
+        window.location.href = '/dashboard';
       }
     } catch (error: any) {
       console.error('Login error details:', error);
@@ -102,12 +96,12 @@ export default function LoginPage() {
               <h2 className="mt-4 text-xl font-semibold">Login successful!</h2>
               <p className="mt-2 text-gray-500 dark:text-gray-400">Redirecting to dashboard...</p>
               <div className="mt-4">
-                <button
-                  onClick={() => router.push('/dashboard')}
-                  className="btn-primary"
+                <a 
+                  href="/dashboard"
+                  className="btn-primary inline-block"
                 >
                   Go to Dashboard Now
-                </button>
+                </a>
               </div>
             </div>
           </div>
