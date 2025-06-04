@@ -169,6 +169,61 @@ This project can be easily deployed to Vercel:
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## License
+## What would you improve if given more time?
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+Given more time, there are several enhancements I would implement to make this job board application more robust and feature-rich:
+
+1. **Advanced Search & Filtering System**:
+   - Implement full-text search capabilities with Supabase's pgvector extension
+   - Add more sophisticated filtering options (salary range, experience level, tech stack)
+   - Create a saved searches feature for registered users
+
+2. **User Experience Improvements**:
+   - Job application tracking system for candidates
+   - Resume/CV parser and storage
+   - Email notifications for application status changes
+   - Improved mobile experience with a dedicated mobile app
+
+3. **Employer Features**:
+   - Analytics dashboard for job posting performance
+   - Applicant tracking system (ATS) functionality
+   - Company profile pages with branding options
+   - Featured job listings and promotional options
+
+4. **Technical Enhancements**:
+   - Implement comprehensive testing (unit, integration, and E2E)
+   - Set up CI/CD pipelines for more robust deployment
+   - Performance optimizations (better code splitting, image optimization)
+   - Server-side caching strategies for faster page loads
+
+5. **Monetization Strategies**:
+   - Premium employer subscriptions
+   - Featured job listings
+   - Pay-per-application model
+   - Targeted job advertising
+
+6. **Security Enhancements**:
+   - Enhanced rate limiting and anti-spam measures
+   - Two-factor authentication
+   - More granular user permissions system
+   - Regular security audits
+
+7. **Integration Capabilities**:
+   - API development for third-party integrations
+   - Webhook support for notifications
+   - Integration with popular ATS systems
+   - Social media sharing features
+
+These improvements would significantly enhance the application's value proposition while making it more competitive in the job board market.
+
+## 📜 License - Apache License 2.0 (TL;DR)
+
+This project follows the **Apache License 2.0**, which means:
+
+- ✅ **You can** use, modify, and distribute the code freely.  
+- ✅ **You must** include the original license when distributing.  
+- ✅ **You must** include the `NOTICE` file if one is provided.  
+- ✅ **You can** use this in personal & commercial projects.  
+- ✅ **No warranties** – use at your own risk! 🚀  
+
+For full details, check the [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0). 
