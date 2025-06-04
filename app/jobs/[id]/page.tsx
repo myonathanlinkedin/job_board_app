@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { JobEntity } from '@/domains/job/domain/entities';
 import { Location, JobType } from '@/domains/job/domain/value-objects';
 import { mapToJobDto } from '@/domains/job/application/dtos';
+import DeleteDialog from '@/components/ui/DeleteDialog';
 
 type Props = {
   params: { id: string };
@@ -21,6 +22,7 @@ export default function JobDetailPage({ params }: Props) {
   const [formattedDate, setFormattedDate] = useState<string>('');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const jobTypeBadgeColors: Record<string, string> = {
     "FULL_TIME": 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
@@ -111,10 +113,6 @@ export default function JobDetailPage({ params }: Props) {
   }, [id]);
   
   const handleDeleteJob = async () => {
-    if (!confirm("Are you sure you want to delete this job posting? This action cannot be undone.")) {
-      return;
-    }
-    
     try {
       setDeleteLoading(true);
       
@@ -128,17 +126,26 @@ export default function JobDetailPage({ params }: Props) {
         throw error;
       }
       
-      // Show success message
-      alert("Job successfully deleted!");
+      // Show success toast notification
+      if (typeof window !== 'undefined' && window.showToast) {
+        window.showToast({
+          message: 'Job successfully deleted!',
+          type: 'success',
+          duration: 3000
+        });
+      }
       
-      // Redirect to dashboard
-      router.push('/dashboard');
+      // Redirect to dashboard after a short delay to show the toast
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 1000);
       
     } catch (err: any) {
       console.error("Error deleting job:", err);
-      alert(`Failed to delete job: ${err.message}`);
+      setError(`Failed to delete job: ${err.message}`);
     } finally {
       setDeleteLoading(false);
+      setIsDeleteDialogOpen(false);
     }
   };
   
@@ -272,11 +279,10 @@ export default function JobDetailPage({ params }: Props) {
                   </Link>
                   
                   <button
-                    onClick={handleDeleteJob}
-                    disabled={deleteLoading}
+                    onClick={() => setIsDeleteDialogOpen(true)}
                     className="btn-danger text-center"
                   >
-                    {deleteLoading ? 'Deleting...' : 'Delete Job'}
+                    Delete Job
                   </button>
                 </>
               )}
@@ -291,6 +297,15 @@ export default function JobDetailPage({ params }: Props) {
           </div>
         </div>
       </div>
+      
+      <DeleteDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        onConfirm={handleDeleteJob}
+        title="Delete Job Posting"
+        description="Are you sure you want to delete this job posting? This action cannot be undone."
+        isLoading={deleteLoading}
+      />
     </div>
   );
 } 

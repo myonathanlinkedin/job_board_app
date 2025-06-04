@@ -6,112 +6,115 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
   const type = requestUrl.searchParams.get('type');
-  
-  // Check for errors in URL - access_denied with otp_expired is a common error
-  // Note: We can't directly access URL hash fragment (#) in server side, but we might see it in referrer
-  const referer = request.headers.get('referer') || '';
-  const hasError = referer.includes('error=') || referer.includes('#error=');
-  
-  if (hasError) {
-    console.error('Auth callback error detected in referrer:', referer);
+  const redirectTo = requestUrl.searchParams.get('redirect_to');
+  const token = requestUrl.searchParams.get('token');
+
+  console.log('CALLBACK DEBUG: Start processing callback request.');
+  console.log('CALLBACK DEBUG: Raw URL:', request.url);
+  console.log('CALLBACK DEBUG: Parsed searchParams:', { code, type, redirectTo, token });
+
+  // Decode redirect_to if present
+  const decodedRedirectTo = redirectTo ? decodeURIComponent(redirectTo) : null;
+
+  console.log('Auth callback received:', {
+    type,
+    hasCode: !!code,
+    hasToken: !!token,
+    redirectTo: decodedRedirectTo,
+    fullUrl: request.url
+  });
+
+  // Check for errors from Supabase
+  const error = requestUrl.searchParams.get('error');
+  const errorDescription = requestUrl.searchParams.get('error_description');
+
+  if (error || errorDescription) {
+    console.error('Error in auth callback:', error, errorDescription);
     return NextResponse.redirect(
-      `${requestUrl.origin}/auth/login?error=${encodeURIComponent('Password reset link is invalid or has expired. Please request a new one.')}`
+      `${requestUrl.origin}/auth/login?error=${encodeURIComponent(errorDescription || error || 'An unknown authentication error occurred.')}`
     );
   }
-  
-  console.log('Auth callback received:', { type, hasCode: !!code });
 
-  // Handle recovery type (password reset) separately
-  if (type === 'recovery' && code) {
+  // Handle auth types with code exchange and recovery flow
+  if (code || (type === 'recovery' && token)) {
+    console.log('CALLBACK DEBUG: Condition for code or recovery token met. Proceeding with session processing.');
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    
+
     try {
-      console.log('Processing password recovery flow with code');
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
-      
-      if (error) {
-        console.error('Error during recovery code exchange:', error);
-        return NextResponse.redirect(
-          `${requestUrl.origin}/auth/login?error=${encodeURIComponent('Failed to process reset link. Please request a new one.')}`
-        );
+      console.log('Processing auth callback with code or recovery token', { hasCode: !!code, hasToken: !!token, type });
+
+      // Attempt to get session. Supabase client should process URL parameters (code, token, type)
+      // to establish a session internally if valid.
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        console.error('Error getting session in callback:', sessionError);
+        // Redirect to login with a specific error indicating session processing failed
+         return NextResponse.redirect(
+           `${requestUrl.origin}/auth/login?error=${encodeURIComponent('Failed to process authentication link. Please try again.') + (sessionError.message ? ' Error: ' + sessionError.message : '')}`
+         );
       }
-      
-      // Successful code exchange for password reset - redirect to reset page
-      // Add 'from=reset' to indicate this is from a password reset flow
-      console.log('Successfully exchanged password reset code for session, redirecting to reset password page');
-      
-      // Set strong bypass cookies to ensure we reach the reset password page
-      const response = NextResponse.redirect(`${requestUrl.origin}/auth/change-password?from=reset`);
-      
-      // Set a cookie to indicate this is a reset flow
-      response.cookies.set('password_reset_flow', 'true', {
-        maxAge: 600, // 10 minutes
-        path: '/',
-        sameSite: 'lax'
-      });
-      
-      // Set bypass cookies to prevent redirects by middleware
-      response.cookies.set('bypass_reset_redirect', 'true', {
-        maxAge: 600, // 10 minutes
-        path: '/',
-        sameSite: 'lax'
-      });
-      
-      // Prevent redirect loops
-      response.cookies.set('prevent_auth_redirect', 'true', {
-        maxAge: 600, // 10 minutes
-        path: '/',
-        sameSite: 'lax'
-      });
-      
-      // Log the redirection for debugging
-      console.log('Redirecting to reset password page with bypass cookies set');
-      
-      // Store the user's email in session for the reset password page to use if needed
-      try {
-        const user = await supabase.auth.getUser();
-        if (user?.data?.user?.email) {
-          response.cookies.set('reset_user_email', user.data.user.email, {
-            maxAge: 600, // 10 minutes
-            path: '/',
-            sameSite: 'lax'
-          });
-        }
-      } catch (e) {
-        console.error('Error getting user email:', e);
+
+      // Determine if this was initiated by a password recovery link based on original URL params
+       const cameFromRecoveryLink = type === 'recovery' || (decodedRedirectTo && decodedRedirectTo.includes('type=recovery'));
+
+      // If a session is successfully established AND it came from a recovery link
+      if (session && cameFromRecoveryLink) {
+         console.log('Successfully processed recovery link, session established. Redirecting to change password page.');
+
+         // Set cookies to indicate reset flow and bypass middleware redirects
+         const response = NextResponse.redirect(`${requestUrl.origin}/auth/change-password?from=reset`);
+
+         response.cookies.set('password_reset_flow', 'true', { maxAge: 600, path: '/', sameSite: 'lax' });
+         response.cookies.set('bypass_reset_redirect', 'true', { maxAge: 600, path: '/', sameSite: 'lax' });
+
+         // Clear general auth redirect counters on successful flow
+         response.cookies.delete('auth_redirect_count');
+         response.cookies.delete('prevent_auth_redirect');
+         response.cookies.delete('middleware_auth_redirect');
+
+         return response;
+
+      } else if (session && !cameFromRecoveryLink) {
+          // If a session is established but it's NOT a recovery link (e.g., normal login/signup callback)
+          console.log('Successfully processed general auth callback, session established. Redirecting to dashboard.');
+           // Clear password reset cookies on successful general auth
+           const response = NextResponse.redirect(`${requestUrl.origin}/dashboard`);
+           response.cookies.delete('password_reset_flow');
+           response.cookies.delete('bypass_reset_redirect');
+           response.cookies.delete('prevent_auth_redirect');
+           // Clear general auth redirect counters as user is now authenticated
+           response.cookies.delete('auth_redirect_count');
+           response.cookies.delete('middleware_auth_redirect');
+
+          return response;
+
+      } else {
+          // If no session was established after processing code/token
+          console.error('Callback processed code/token but no session established.');
+          return NextResponse.redirect(
+            `${requestUrl.origin}/auth/login?error=${encodeURIComponent('Authentication failed. Please try logging in again.')}`
+          );
       }
-      
-      return response;
-      
-    } catch (error) {
-      console.error('Exception during recovery flow:', error);
+
+    } catch (error: any) {
+      console.error('Exception during auth callback processing:', error);
       return NextResponse.redirect(
-        `${requestUrl.origin}/auth/login?error=${encodeURIComponent('An unexpected error occurred. Please try again.')}`
-      );
-    }
-  }
-  
-  // Handle all other auth types (login, signup)
-  if (code) {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    
-    try {
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
-      
-      if (error) {
-        throw error;
-      }
-      
-    } catch (error) {
-      console.error('Error exchanging code for session:', error);
-      return NextResponse.redirect(
-        `${requestUrl.origin}/auth/login?error=${encodeURIComponent('Failed to sign in. Please try again.')}`
+        `${requestUrl.origin}/auth/login?error=${encodeURIComponent('An unexpected error occurred during authentication. Please try again. Error: ' + error.message)}`
       );
     }
   }
 
-  // Default redirect to dashboard for successful regular auth flows
-  return NextResponse.redirect(`${requestUrl.origin}/dashboard`);
+  // If no code or recognized recovery flow indicator in the initial request
+  console.log('CALLBACK DEBUG: Condition for code or recovery token NOT met.');
+  console.log('Callback received without necessary parameters.');
+  const response = NextResponse.redirect(`${requestUrl.origin}/auth/login?error=${encodeURIComponent('Invalid authentication link.')}`);
+  // Clear potential lingering redirect cookies
+  response.cookies.delete('auth_redirect_count');
+  response.cookies.delete('prevent_auth_redirect');
+  response.cookies.delete('middleware_auth_redirect');
+  response.cookies.delete('password_reset_flow');
+  response.cookies.delete('bypass_reset_redirect');
+  return response;
 } 
