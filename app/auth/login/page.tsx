@@ -6,6 +6,9 @@ import Link from 'next/link';
 import { Icons } from '@/components/ui/Icons';
 import * as auth from '@/lib/auth-client';
 
+// Create a session storage key for redirect count
+const REDIRECT_COUNT_KEY = 'auth_redirect_count';
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,14 +33,61 @@ export default function LoginPage() {
   useEffect(() => {
     async function checkAuth() {
       try {
+        // On initial mount, clear any existing redirect loops
+        if (typeof window !== 'undefined') {
+          // If we're already at the login page with an error param, don't redirect
+          const url = new URL(window.location.href);
+          if (url.searchParams.has('error')) {
+            console.log('Found error in URL, breaking redirect loop');
+            sessionStorage.removeItem(REDIRECT_COUNT_KEY);
+            return;
+          }
+          
+          // Check for loop detection parameter
+          const preventRedirect = sessionStorage.getItem('prevent_auth_redirect');
+          if (preventRedirect === 'true') {
+            console.log('Redirect prevention active, clearing auth redirect counter');
+            sessionStorage.removeItem(REDIRECT_COUNT_KEY);
+            sessionStorage.removeItem('prevent_auth_redirect');
+            return;
+          }
+        }
+        
+        // Get current redirect count from session storage
+        let redirectCount = 0;
+        if (typeof window !== 'undefined') {
+          const storedCount = sessionStorage.getItem(REDIRECT_COUNT_KEY);
+          redirectCount = storedCount ? parseInt(storedCount, 10) : 0;
+          
+          // If we've redirected too many times, stop to prevent infinite loops
+          if (redirectCount > 3) {
+            console.error('Too many redirects detected - breaking potential infinite loop');
+            sessionStorage.removeItem(REDIRECT_COUNT_KEY);
+            sessionStorage.setItem('prevent_auth_redirect', 'true');
+            setError('Authentication error: too many redirects. Please try again or clear your browser cookies.');
+            return;
+          }
+          
+          // Increment the counter for next time
+          sessionStorage.setItem(REDIRECT_COUNT_KEY, (redirectCount + 1).toString());
+        }
+        
         const session = await auth.getSession();
         if (session) {
           console.log('User already has a session, redirecting to dashboard or requested page');
-          // Use the redirect from URL or default to dashboard
+          
+          // Hard navigation to dashboard - most reliable approach
           window.location.href = redirect;
+        } else if (redirectCount > 0) {
+          // If we've already tried redirecting but have no session, reset the counter
+          sessionStorage.removeItem(REDIRECT_COUNT_KEY);
         }
       } catch (err) {
         console.error('Error checking auth state:', err);
+        // Clear redirect counter on error
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem(REDIRECT_COUNT_KEY);
+        }
       }
     }
     
@@ -54,6 +104,13 @@ export default function LoginPage() {
       // Debug info
       console.log('Attempting login with email:', email);
       
+      // Reset all redirect counters and flags
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(REDIRECT_COUNT_KEY);
+        sessionStorage.removeItem('prevent_auth_redirect');
+        sessionStorage.removeItem('auth_redirect_from_dashboard');
+      }
+      
       // Sign in using our helper
       const data = await auth.signIn(email, password, redirect);
       console.log('Login successful:', data);
@@ -67,8 +124,12 @@ export default function LoginPage() {
           user: data.user
         });
         
-        // Redirect to the requested page or dashboard
-        window.location.href = redirect;
+        // Set a small delay before redirecting for UX purposes
+        setTimeout(() => {
+          console.log('Forcing navigation to:', redirect);
+          // Use window.location for hard navigation - more reliable in this case
+          window.location.href = redirect;
+        }, 500);
       }
     } catch (error: any) {
       console.error('Login error details:', error);
@@ -90,6 +151,22 @@ export default function LoginPage() {
 
   // If auth data exists but we haven't redirected yet, show a loading state
   if (authData) {
+    // Force redirect after a short delay to ensure UI shows feedback
+    useEffect(() => {
+      const redirectTimer = setTimeout(() => {
+        // Set a bypass cookie to avoid immediate redirect back to login
+        if (typeof document !== 'undefined') {
+          document.cookie = `bypass_auth_check=true;path=/;max-age=3600;SameSite=Lax${
+            window.location.protocol === 'https:' ? ';Secure' : ''
+          }`;
+        }
+        
+        window.location.href = redirect;
+      }, 1500);
+      
+      return () => clearTimeout(redirectTimer);
+    }, [redirect]);
+    
     return (
       <div className="flex min-h-[80vh] flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -99,12 +176,20 @@ export default function LoginPage() {
               <h2 className="mt-4 text-xl font-semibold">Login successful!</h2>
               <p className="mt-2 text-gray-500 dark:text-gray-400">Redirecting to dashboard...</p>
               <div className="mt-4">
-                <a 
-                  href={redirect}
-                  className="btn-primary inline-block"
+                <button 
+                  onClick={() => {
+                    // Set a bypass cookie to avoid immediate redirect back to login
+                    if (typeof document !== 'undefined') {
+                      document.cookie = `bypass_auth_check=true;path=/;max-age=3600;SameSite=Lax${
+                        window.location.protocol === 'https:' ? ';Secure' : ''
+                      }`;
+                    }
+                    window.location.href = redirect;
+                  }}
+                  className="btn-primary"
                 >
                   Continue
-                </a>
+                </button>
               </div>
             </div>
           </div>

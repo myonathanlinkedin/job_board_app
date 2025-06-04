@@ -7,6 +7,18 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get('code');
   const type = requestUrl.searchParams.get('type');
   
+  // Check for errors in URL - access_denied with otp_expired is a common error
+  // Note: We can't directly access URL hash fragment (#) in server side, but we might see it in referrer
+  const referer = request.headers.get('referer') || '';
+  const hasError = referer.includes('error=') || referer.includes('#error=');
+  
+  if (hasError) {
+    console.error('Auth callback error detected in referrer:', referer);
+    return NextResponse.redirect(
+      `${requestUrl.origin}/auth/login?error=${encodeURIComponent('Password reset link is invalid or has expired. Please request a new one.')}`
+    );
+  }
+  
   console.log('Auth callback received:', { type, hasCode: !!code });
 
   // Handle recovery type (password reset) separately

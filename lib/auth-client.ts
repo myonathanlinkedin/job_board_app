@@ -24,15 +24,50 @@ export async function getUser() {
  */
 export async function getSession() {
   try {
+    console.log('Getting session...');
     const { data, error } = await supabase.auth.getSession();
+    
     if (error) {
       console.error('Error getting session:', error.message);
       return null;
     }
-    return data.session;
+    
+    if (data.session) {
+      // Set bypass cookie to prevent immediate redirects
+      if (typeof document !== 'undefined') {
+        document.cookie = `bypass_auth_check=true;path=/;max-age=3600;SameSite=Lax${
+          window.location.protocol === 'https:' ? ';Secure' : ''
+        }`;
+      }
+      return data.session;
+    }
+    
+    return null;
   } catch (error) {
     console.error('Unexpected error getting session:', error);
     return null;
+  }
+}
+
+/**
+ * Sets a cookie to indicate recent login
+ * This helps prevent redirect loops by giving middleware a grace period
+ */
+function setJustLoggedInCookie() {
+  if (typeof document !== 'undefined') {
+    // Set for 5 seconds with SameSite=Lax for better security
+    document.cookie = `just_logged_in=true;path=/;max-age=5;SameSite=Lax${
+      window.location.protocol === 'https:' ? ';Secure' : ''
+    }`;
+    
+    // Set bypass cookie for 1 hour
+    document.cookie = `bypass_auth_check=true;path=/;max-age=3600;SameSite=Lax${
+      window.location.protocol === 'https:' ? ';Secure' : ''
+    }`;
+    
+    // Also clear any redirect prevention flags
+    sessionStorage.removeItem('prevent_auth_redirect');
+    sessionStorage.removeItem('auth_redirect_from_dashboard');
   }
 }
 
@@ -45,6 +80,12 @@ export async function getSession() {
  */
 export async function signIn(email: string, password: string, redirectTo?: string) {
   try {
+    // Clear any existing redirect counters before signing in
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('auth_redirect_count');
+      sessionStorage.removeItem('prevent_auth_redirect');
+    }
+    
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -54,6 +95,9 @@ export async function signIn(email: string, password: string, redirectTo?: strin
       console.error('Error signing in:', error.message);
       throw error;
     }
+    
+    // Set a cookie to indicate recent login (helps prevent redirect loops)
+    setJustLoggedInCookie();
     
     return data;
   } catch (error) {

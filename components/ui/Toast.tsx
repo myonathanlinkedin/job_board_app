@@ -88,11 +88,22 @@ export function Toast({ message, type = 'success', duration = 5000, onClose }: T
 export function ToastContainer() {
   const [toasts, setToasts] = useState<Array<{id: string, props: ToastProps}>>([]);
 
-  // Global method to add a toast
-  window.showToast = (props: ToastProps) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setToasts([...toasts, { id, props }]);
-  };
+  // Use useEffect to ensure this only runs on the client side
+  useEffect(() => {
+    // Global method to add a toast - only defined in the browser
+    window.showToast = (props: ToastProps) => {
+      const id = Math.random().toString(36).substring(2, 9);
+      setToasts(prevToasts => [...prevToasts, { id, props }]);
+    };
+    
+    // Clean up function to remove the global method when component unmounts
+    return () => {
+      if (typeof window !== 'undefined') {
+        // @ts-ignore - Safe to delete the property
+        delete window.showToast;
+      }
+    };
+  }, []);
 
   return (
     <div>
