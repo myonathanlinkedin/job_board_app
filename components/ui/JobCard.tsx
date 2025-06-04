@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { JobDto } from '@/domains/job/application/dtos';
 import { JobType } from '@/domains/job/domain/value-objects';
+import { Icons } from './Icons';
 
 interface JobCardProps {
   job: JobDto;
@@ -47,30 +48,12 @@ export default function JobCard({ job }: JobCardProps) {
               {job.company}
             </p>
             <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm mb-2">
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className="h-4 w-4 mr-1"
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" 
-                />
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" 
-                />
-              </svg>
+              <Icons.Location className="h-4 w-4 mr-1" />
               <span>{job.location}</span>
             </div>
           </div>
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getJobTypeBadgeColor(job.type)}`}>
+            <Icons.Clock className="h-3 w-3 mr-1" />
             {job.type.replace('_', ' ')}
           </span>
         </div>
@@ -83,11 +66,13 @@ export default function JobCard({ job }: JobCardProps) {
         
         <div className="mt-4 flex justify-between items-center">
           {job.salary && (
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <span className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300">
+              <Icons.Money className="h-3 w-3 mr-1" />
               {job.salary}
             </span>
           )}
-          <span className="text-xs text-gray-500 dark:text-gray-400">
+          <span className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+            <Icons.Calendar className="h-3 w-3 mr-1" />
             Posted {formatDate(job.createdAt)}
           </span>
         </div>
