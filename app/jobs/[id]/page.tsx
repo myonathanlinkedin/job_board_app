@@ -19,6 +19,8 @@ export default function JobDetailPage({ params }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formattedDate, setFormattedDate] = useState<string>('');
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   
   const jobTypeBadgeColors: Record<string, string> = {
     "FULL_TIME": 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
@@ -27,6 +29,18 @@ export default function JobDetailPage({ params }: Props) {
     "INTERNSHIP": 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
     "FREELANCE": 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
   };
+  
+  useEffect(() => {
+    // Get current user
+    const getCurrentUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data?.user) {
+        setCurrentUser(data.user);
+      }
+    };
+    
+    getCurrentUser();
+  }, []);
   
   useEffect(() => {
     async function loadJob() {
@@ -95,6 +109,38 @@ export default function JobDetailPage({ params }: Props) {
     
     loadJob();
   }, [id]);
+  
+  const handleDeleteJob = async () => {
+    if (!confirm("Are you sure you want to delete this job posting? This action cannot be undone.")) {
+      return;
+    }
+    
+    try {
+      setDeleteLoading(true);
+      
+      const { error } = await supabase
+        .from('jobs')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', currentUser.id);
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Show success message
+      alert("Job successfully deleted!");
+      
+      // Redirect to dashboard
+      router.push('/dashboard');
+      
+    } catch (err: any) {
+      console.error("Error deleting job:", err);
+      alert(`Failed to delete job: ${err.message}`);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
   
   if (loading) {
     return (
@@ -204,15 +250,37 @@ export default function JobDetailPage({ params }: Props) {
               </div>
             </div>
             
-            <a 
-              href={job.applyUrl} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="btn-primary text-center"
-            >
-              Apply Now
-              <span className="ml-1">↗</span>
-            </a>
+            <div className="flex gap-3">
+              <a 
+                href={job.applyUrl} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="btn-primary text-center"
+              >
+                Apply Now
+                <span className="ml-1">↗</span>
+              </a>
+              
+              {/* Show edit and delete buttons for job owner */}
+              {currentUser && job.userId && currentUser.id === job.userId && (
+                <>
+                  <Link
+                    href={`/dashboard/jobs/${job.id}/edit`}
+                    className="btn-secondary text-center"
+                  >
+                    Edit Job
+                  </Link>
+                  
+                  <button
+                    onClick={handleDeleteJob}
+                    disabled={deleteLoading}
+                    className="btn-danger text-center"
+                  >
+                    {deleteLoading ? 'Deleting...' : 'Delete Job'}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
           
           <div className="mt-6">
