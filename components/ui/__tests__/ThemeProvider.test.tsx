@@ -20,7 +20,13 @@ Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 
 // Create a test component that uses the theme
 function TestComponent() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
+  
+  // Create a toggleTheme function that wasn't in the original context
+  const toggleTheme = () => {
+    setTheme(theme === 'light' ? 'dark' : 'light');
+  };
+  
   return (
     <div>
       <span data-testid="current-theme">{theme}</span>
@@ -60,13 +66,13 @@ describe('ThemeProvider', () => {
     await user.click(screen.getByRole('button', { name: 'Toggle Theme' }));
     
     expect(screen.getByTestId('current-theme')).toHaveTextContent('dark');
-    expect(localStorageMock.setItem).toHaveBeenCalledWith('theme', 'dark');
+    expect(localStorageMock.setItem).toHaveBeenCalledWith('ui-theme', 'dark');
     expect(document.documentElement.classList.contains('dark')).toBe(true);
 
     await user.click(screen.getByRole('button', { name: 'Toggle Theme' }));
     
     expect(screen.getByTestId('current-theme')).toHaveTextContent('light');
-    expect(localStorageMock.setItem).toHaveBeenCalledWith('theme', 'light');
+    expect(localStorageMock.setItem).toHaveBeenCalledWith('ui-theme', 'light');
     expect(document.documentElement.classList.contains('dark')).toBe(false);
   });
 
@@ -80,7 +86,7 @@ describe('ThemeProvider', () => {
     );
 
     expect(screen.getByTestId('current-theme')).toHaveTextContent('dark');
-    expect(localStorageMock.getItem).toHaveBeenCalledWith('theme');
+    expect(localStorageMock.getItem).toHaveBeenCalledWith('ui-theme');
     expect(document.documentElement.classList.contains('dark')).toBe(true);
   });
 }); 
