@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import ThemeToggle from './ThemeToggle';
@@ -13,6 +13,7 @@ export default function Navbar() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -48,6 +49,21 @@ export default function Navbar() {
     };
   }, []);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const dropdown = document.getElementById('user-dropdown');
+      if (dropdown && !dropdown.contains(event.target as Node)) {
+        setShowUserDropdown(false);
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const handleSignOut = async () => {
     try {
       await auth.signOut();
@@ -62,6 +78,21 @@ export default function Navbar() {
   const toggleMenu = () => {
     setIsOpen(!isOpen);
   };
+  
+  const toggleUserDropdown = () => {
+    setShowUserDropdown(!showUserDropdown);
+  };
+
+  // User dropdown menu items when authenticated
+  const userDropdownItems = user ? [
+    { label: 'Dashboard', href: '/dashboard' },
+    { label: 'My Profile', href: '/profile' },
+    { label: 'Debug Auth', href: '/debug/auth-status' },
+    { label: 'Sign out', onClick: handleSignOut }
+  ] : [
+    { label: 'Sign in', href: '/auth/login' },
+    { label: 'Sign up', href: '/auth/signup' },
+  ];
 
   return (
     <nav className="bg-white border-gray-200 dark:bg-gray-900 shadow-sm">
@@ -79,21 +110,43 @@ export default function Navbar() {
           {loading ? (
             <div className="h-10 w-20 animate-pulse bg-gray-200 dark:bg-gray-700 rounded"></div>
           ) : user ? (
-            <div className="flex space-x-3">
-              <Link 
-                href="/dashboard" 
-                className="flex items-center text-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded"
-              >
-                <Icons.Briefcase className="w-4 h-4 mr-2" />
-                Dashboard
-              </Link>
+            <div className="relative" id="user-dropdown">
               <button
-                onClick={handleSignOut}
-                className="flex items-center text-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded"
+                onClick={toggleUserDropdown}
+                className="flex items-center text-gray-800 dark:text-white bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-4 py-2 rounded"
               >
                 <Icons.User className="w-4 h-4 mr-2" />
-                Sign Out
+                <span className="mr-1">{user.user_metadata?.full_name?.split(' ')[0] || 'Account'}</span>
+                <Icons.ChevronDown className="w-4 h-4" />
               </button>
+              
+              {showUserDropdown && (
+                <div className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white dark:bg-gray-800 py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                  {userDropdownItems.map((item, index) => (
+                    <Fragment key={index}>
+                      {item.href ? (
+                        <Link 
+                          href={item.href}
+                          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={() => setShowUserDropdown(false)}
+                        >
+                          {item.label}
+                        </Link>
+                      ) : (
+                        <button
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={() => {
+                            setShowUserDropdown(false);
+                            item.onClick?.();
+                          }}
+                        >
+                          {item.label}
+                        </button>
+                      )}
+                    </Fragment>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex space-x-3">
@@ -102,7 +155,6 @@ export default function Navbar() {
                 Log In
               </Link>
               <Link href="/auth/signup" className="flex items-center text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">
-                <Icons.User className="w-4 h-4 mr-2" />
                 Sign Up
               </Link>
             </div>

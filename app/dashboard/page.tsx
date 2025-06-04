@@ -5,57 +5,101 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { Icons } from '@/components/ui/Icons';
+import * as auth from '@/lib/auth-client';
 
-export const metadata = {
-  title: 'Dashboard | Job Board App',
-  description: 'Manage your job postings',
-};
+// Metadata needs to be in a separate layout.tsx file for client components
+// export const metadata = {
+//   title: 'Dashboard | Job Board App',
+//   description: 'Manage your job postings',
+// };
 
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
+  // For debugging
   useEffect(() => {
-    // Check if user is authenticated
-    async function checkUser() {
+    console.log("Dashboard page mounted");
+    return () => console.log("Dashboard page unmounted");
+  }, []);
+
+  // Use a more resilient auth check approach
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkSession() {
       try {
         setLoading(true);
+        console.log("Checking session in dashboard...");
         
-        const { data: { user: currentUser }, error } = await supabase.auth.getUser();
-        console.log('Dashboard auth check:', { currentUser, error });
+        // First try to get session using our helper
+        const session = await auth.getSession();
+        console.log("Session check result:", !!session);
         
-        if (error || !currentUser) {
-          console.log('User not authenticated, redirecting to login');
-          router.push('/auth/login');
-          return;
+        if (!session) {
+          // No session found, try refreshing session
+          console.log("No session found, trying to refresh...");
+          const { data, error } = await supabase.auth.refreshSession();
+          console.log("Refresh result:", { success: !!data.session, error: !!error });
+          
+          if (error || !data.session) {
+            console.log('No valid session found after refresh, redirecting to login');
+            throw new Error('Authentication required');
+          }
         }
         
-        setUser(currentUser);
+        // Now get the user
+        const currentUser = await auth.getUser();
+        console.log("Got user result:", !!currentUser);
         
-        // Fetch user's jobs
-        const { data: jobsData, error: jobsError } = await supabase
-          .from('jobs')
-          .select('*')
-          .eq('user_id', currentUser.id)
-          .order('created_at', { ascending: false });
-        
-        if (jobsError) {
-          console.error('Error fetching jobs:', jobsError);
-        } else {
-          setJobs(jobsData || []);
+        if (!currentUser) {
+          throw new Error('User not found');
         }
-      } catch (error) {
-        console.error('Error in dashboard initialization:', error);
-        router.push('/auth/login');
+        
+        if (mounted) {
+          console.log('User authenticated:', currentUser);
+          setUser(currentUser);
+          
+          // Fetch user's jobs
+          console.log("Fetching jobs for user:", currentUser.id);
+          const { data: jobsData, error: jobsError } = await supabase
+            .from('jobs')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false });
+          
+          if (jobsError) {
+            console.error('Error fetching jobs:', jobsError);
+          } else {
+            console.log("Jobs fetched:", jobsData?.length || 0);
+            setJobs(jobsData || []);
+          }
+        }
+      } catch (error: any) {
+        console.error('Dashboard authentication error:', error.message);
+        if (mounted) {
+          setError('You need to log in to view this page');
+          // Add delay to avoid immediate redirection
+          setTimeout(() => {
+            window.location.href = '/auth/login';
+          }, 1500);
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
     
-    checkUser();
-  }, [router]);
+    checkSession();
+    
+    return () => {
+      mounted = false;
+    };
+  }, []);
   
   if (loading) {
     return (
@@ -68,8 +112,38 @@ export default function DashboardPage() {
     );
   }
   
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center p-6 bg-red-50 dark:bg-red-900/20 rounded-lg max-w-md mx-auto">
+          <Icons.Close className="w-10 h-10 mx-auto text-red-500" />
+          <p className="mt-4 text-lg text-red-600 dark:text-red-400">{error}</p>
+          <div className="mt-6">
+            <a href="/auth/login" className="btn-primary">
+              Go to Login
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   if (!user) {
-    return null; // Will redirect in the useEffect
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center p-6 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg max-w-md mx-auto">
+          <p className="mt-4 text-lg text-yellow-600 dark:text-yellow-400">User information not found. Try refreshing the page.</p>
+          <div className="mt-6">
+            <button 
+              onClick={() => window.location.reload()} 
+              className="btn-primary"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

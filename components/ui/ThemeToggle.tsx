@@ -1,154 +1,76 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTheme } from './ThemeProvider';
 import { Icons } from './Icons';
 
 export default function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [localTheme, setLocalTheme] = useState<'light' | 'dark'>('light');
-  const [isToggling, setIsToggling] = useState(false);
-  
-  // Safely access theme context
-  const themeContext = (() => {
-    try {
-      return useTheme();
-    } catch (e) {
-      console.error('Theme context error:', e);
-      return { 
-        theme: localTheme, 
-        toggleTheme: () => {
-          console.log('Using fallback toggle');
-          setLocalTheme(prev => {
-            const newTheme = prev === 'light' ? 'dark' : 'light';
-            // Apply theme changes directly to document when context fails
-            if (typeof document !== 'undefined') {
-              document.documentElement.classList.remove('light', 'dark');
-              document.documentElement.classList.add(newTheme);
-              localStorage.setItem('theme', newTheme);
-            }
-            return newTheme;
-          });
-        }
-      };
-    }
-  })();
-  
-  const { theme, toggleTheme } = themeContext;
-  
-  // Initialize from localStorage or system preference
+  const [error, setError] = useState<string | null>(null);
+
+  // Only show the toggle after mounting to avoid hydration mismatch
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // Detect current theme from document or localStorage
-      const detectTheme = () => {
-        if (document.documentElement.classList.contains('dark')) {
-          setLocalTheme('dark');
-        } else if (document.documentElement.classList.contains('light')) {
-          setLocalTheme('light');
-        } else {
-          const stored = localStorage.getItem('theme') as 'light' | 'dark' | null;
-          if (stored) {
-            setLocalTheme(stored);
-          } else {
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            setLocalTheme(prefersDark ? 'dark' : 'light');
-          }
-        }
-      };
+    setMounted(true);
+  }, []);
 
-      detectTheme();
-      setMounted(true);
-      
-      // Add a listener to detect theme changes from other components
-      const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-          if (mutation.attributeName === 'class' && !isToggling) {
-            detectTheme();
-          }
-        });
-      });
-      
-      observer.observe(document.documentElement, { attributes: true });
-      
-      return () => observer.disconnect();
-    }
-  }, [isToggling]);
-
-  // Sync localTheme with context theme
-  useEffect(() => {
-    if (mounted && theme) {
-      setLocalTheme(theme);
-    }
-  }, [theme, mounted]);
-
-  // Direct DOM manipulation as a fallback if React state is not updating correctly
-  const forceThemeChange = (newTheme: 'light' | 'dark') => {
-    if (typeof document === 'undefined') return;
-    
-    console.log('Force applying theme:', newTheme);
-    
-    // Remove both classes and add the new one
-    document.documentElement.classList.remove('light', 'dark');
-    document.documentElement.classList.add(newTheme);
-    
-    // Update localStorage directly
-    localStorage.setItem('theme', newTheme);
-    
-    // Update local state
-    setLocalTheme(newTheme);
-  };
-
-  const handleToggle = () => {
+  function cycleTheme() {
     try {
-      setIsToggling(true);
+      if (theme === 'dark') {
+        setTheme('light');
+      } else if (theme === 'light') {
+        setTheme('system');
+      } else {
+        setTheme('dark');
+      }
+    } catch (err) {
+      console.error('Failed to toggle theme:', err);
+      setError('Theme toggle failed');
       
-      // Get current effective theme
-      const currentTheme = localTheme || (document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-      
-      console.log('ThemeToggle: Toggling theme from', currentTheme, 'to', newTheme);
-      
-      // Try both methods for maximum reliability
-      toggleTheme(); // Context-based toggle
-      forceThemeChange(newTheme); // Direct DOM manipulation
-      
-      // Set a timeout to prevent the mutation observer from responding immediately
-      setTimeout(() => setIsToggling(false), 100);
-    } catch (error) {
-      console.error('Error in handleToggle:', error);
-      
-      // Fallback to direct DOM manipulation
-      const newTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
-      forceThemeChange(newTheme);
-      
-      setIsToggling(false);
+      // Direct DOM fallback if React context fails
+      try {
+        const html = document.documentElement;
+        const currentTheme = html.classList.contains('dark') ? 'dark' : 'light';
+        html.classList.remove('dark', 'light');
+        html.classList.add(currentTheme === 'dark' ? 'light' : 'dark');
+      } catch (domError) {
+        console.error('DOM fallback failed:', domError);
+      }
     }
-  };
+  }
 
-  // Determine the current visual theme regardless of state
-  const effectiveTheme = mounted 
-    ? (document.documentElement.classList.contains('dark') ? 'dark' : 'light')
-    : localTheme;
+  // During SSR, render a simplified version
+  if (!mounted) {
+    return (
+      <button className="w-10 h-10 flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground">
+        <span className="sr-only">Toggle theme</span>
+        <Icons.Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all" />
+      </button>
+    );
+  }
 
-  // Always render a button, but make it functional only after mounting
+  // Display the appropriate icon based on the current theme
   return (
     <button
-      onClick={mounted ? handleToggle : undefined}
-      className={`relative p-2 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 ${!mounted ? 'opacity-50' : ''}`}
-      aria-label={mounted ? `Switch to ${effectiveTheme === 'light' ? 'dark' : 'light'} mode` : 'Loading theme'}
-      disabled={!mounted || isToggling}
+      onClick={cycleTheme}
+      className="w-10 h-10 flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+      title={`Change theme (current: ${theme})`}
+      aria-label="Toggle theme"
     >
       <span className="sr-only">Toggle theme</span>
       
-      {/* Sun icon */}
-      <Icons.Sun 
-        className={`absolute w-5 h-5 text-orange-500 transition-opacity duration-300 ${effectiveTheme === 'dark' ? 'opacity-100' : 'opacity-0'}`} 
-      />
+      {error && <span className="text-red-500 text-xs absolute bottom-0 right-0">!</span>}
       
-      {/* Moon icon */}
-      <Icons.Moon 
-        className={`w-5 h-5 text-slate-700 dark:text-gray-200 transition-opacity duration-300 ${effectiveTheme === 'light' ? 'opacity-100' : 'opacity-0'}`} 
-      />
+      {theme === 'dark' ? (
+        <Icons.Moon className="h-[1.2rem] w-[1.2rem]" />
+      ) : theme === 'light' ? (
+        <Icons.Sun className="h-[1.2rem] w-[1.2rem]" />
+      ) : (
+        <div className="relative h-[1.2rem] w-[1.2rem]">
+          <Icons.Moon className="absolute inset-0 h-full w-full opacity-50" />
+          <Icons.Sun className="absolute inset-0 h-full w-full opacity-50" />
+        </div>
+      )}
     </button>
   );
 } 

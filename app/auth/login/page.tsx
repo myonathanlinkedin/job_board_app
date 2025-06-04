@@ -31,7 +31,7 @@ export default function LoginPage() {
         const session = await auth.getSession();
         if (session) {
           console.log('User already has a session, redirecting to dashboard');
-          router.push('/dashboard');
+          window.location.href = '/auth/dashboard-redirect';
         }
       } catch (err) {
         console.error('Error checking auth state:', err);
@@ -64,8 +64,8 @@ export default function LoginPage() {
           user: data.user
         });
         
-        // Use hard navigation instead of client-side routing for proper page reload
-        window.location.href = '/dashboard';
+        // Use our dedicated redirect page
+        window.location.href = '/auth/dashboard-redirect';
       }
     } catch (error: any) {
       console.error('Login error details:', error);
@@ -97,7 +97,7 @@ export default function LoginPage() {
               <p className="mt-2 text-gray-500 dark:text-gray-400">Redirecting to dashboard...</p>
               <div className="mt-4">
                 <a 
-                  href="/dashboard"
+                  href="/auth/dashboard-redirect"
                   className="btn-primary inline-block"
                 >
                   Go to Dashboard Now

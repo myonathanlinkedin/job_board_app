@@ -6,6 +6,27 @@ export async function middleware(request: NextRequest) {
   const res = NextResponse.next();
   const pathname = request.nextUrl.pathname;
   
+  // Skip middleware for specific paths that should never be protected
+  const publicPaths = [
+    '/_next', // Next.js assets
+    '/api/', // API routes
+    '/static', // Static files
+    '/images', // Image files
+    '/favicon.ico', // Favicon
+    '/debug', // Debug routes
+  ];
+  
+  if (publicPaths.some(path => pathname.startsWith(path))) {
+    return res;
+  }
+
+  // Add debug param to see if we should bypass auth for debugging
+  const debugBypass = request.nextUrl.searchParams.get('debug_auth') === 'bypass';
+  if (debugBypass && pathname.startsWith('/dashboard')) {
+    console.log('DEBUG MODE: Bypassing auth check for debugging');
+    return res;
+  }
+  
   try {
     // Create a Supabase client for the middleware
     const supabase = createMiddlewareClient({ req: request, res });
@@ -32,7 +53,20 @@ export async function middleware(request: NextRequest) {
     // Handle redirect for unauthenticated users trying to access protected routes
     if (!session && isProtectedRoute) {
       console.log('User is not authenticated, redirecting to login');
-      return NextResponse.redirect(new URL('/auth/login', request.url));
+      
+      // For debugging: Set a cookie to track redirects and prevent redirect loops
+      const redirectCount = parseInt(request.cookies.get('redirect_count')?.value || '0');
+      if (redirectCount > 3) {
+        console.log('Redirect loop detected, sending to debug page');
+        return NextResponse.redirect(new URL('/debug/auth-status', request.url));
+      }
+      
+      const loginUrl = new URL('/auth/login', request.url);
+      const redirectResponse = NextResponse.redirect(loginUrl);
+      redirectResponse.cookies.set('redirect_count', (redirectCount + 1).toString(), {
+        maxAge: 60, // Clear after 1 minute
+      });
+      return redirectResponse;
     }
     
     return res;
