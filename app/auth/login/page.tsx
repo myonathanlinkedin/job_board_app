@@ -94,6 +94,25 @@ export default function LoginPage() {
     checkAuth();
   }, [redirect]);
 
+  // Handle redirect after successful authentication
+  useEffect(() => {
+    // Only run this effect if we have auth data
+    if (!authData) return;
+    
+    const redirectTimer = setTimeout(() => {
+      // Set a bypass cookie to avoid immediate redirect back to login
+      if (typeof document !== 'undefined') {
+        document.cookie = `bypass_auth_check=true;path=/;max-age=3600;SameSite=Lax${
+          window.location.protocol === 'https:' ? ';Secure' : ''
+        }`;
+      }
+      
+      window.location.href = redirect;
+    }, 1500);
+    
+    return () => clearTimeout(redirectTimer);
+  }, [authData, redirect]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     
@@ -124,12 +143,7 @@ export default function LoginPage() {
           user: data.user
         });
         
-        // Set a small delay before redirecting for UX purposes
-        setTimeout(() => {
-          console.log('Forcing navigation to:', redirect);
-          // Use window.location for hard navigation - more reliable in this case
-          window.location.href = redirect;
-        }, 500);
+        // The redirect will be handled by the useEffect above
       }
     } catch (error: any) {
       console.error('Login error details:', error);
@@ -151,22 +165,6 @@ export default function LoginPage() {
 
   // If auth data exists but we haven't redirected yet, show a loading state
   if (authData) {
-    // Force redirect after a short delay to ensure UI shows feedback
-    useEffect(() => {
-      const redirectTimer = setTimeout(() => {
-        // Set a bypass cookie to avoid immediate redirect back to login
-        if (typeof document !== 'undefined') {
-          document.cookie = `bypass_auth_check=true;path=/;max-age=3600;SameSite=Lax${
-            window.location.protocol === 'https:' ? ';Secure' : ''
-          }`;
-        }
-        
-        window.location.href = redirect;
-      }, 1500);
-      
-      return () => clearTimeout(redirectTimer);
-    }, [redirect]);
-    
     return (
       <div className="flex min-h-[80vh] flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">

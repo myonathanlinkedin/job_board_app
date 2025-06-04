@@ -78,6 +78,33 @@ export async function middleware(request: NextRequest) {
     // Create a Supabase client for the middleware
     const supabase = createMiddlewareClient({ req: request, res });
     
+    // Check for reset-password related indicators
+    const isResetPasswordFlow = 
+      pathname === '/auth/reset-password' || 
+      pathname === '/auth/change-password' ||
+      (pathname === '/auth/callback' && request.nextUrl.searchParams.get('type') === 'recovery');
+    
+    // Check for password reset bypass cookies
+    const hasResetCookie = request.cookies.get('password_reset_flow')?.value === 'true';
+    const hasResetBypassCookie = request.cookies.get('bypass_reset_redirect')?.value === 'true';
+    const preventRedirect = request.cookies.get('prevent_auth_redirect')?.value === 'true';
+    
+    // Always allow access to the reset password flow or if bypass cookies are present
+    if (isResetPasswordFlow || hasResetCookie || hasResetBypassCookie) {
+      console.log('Password reset/change flow detected, allowing access');
+      
+      // For the callback route with recovery type, we don't need further checks
+      if (pathname === '/auth/callback' || hasResetBypassCookie) {
+        return res;
+      }
+      
+      // For the reset-password page itself, direct access is allowed
+      if (pathname === '/auth/reset-password') {
+        console.log('Direct access to reset password page, allowing');
+        return res;
+      }
+    }
+    
     // Attempt to refresh the session
     const { data: { session }, error } = await supabase.auth.getSession();
     
@@ -99,6 +126,13 @@ export async function middleware(request: NextRequest) {
     // Auth routes - redirect to dashboard if already signed in
     const authRoutes = ['/auth/login', '/auth/signup'];
     const isAuthRoute = authRoutes.some(route => pathname === route);
+    
+    // Special handling for reset-password page - never redirect this to dashboard
+    // This ensures the reset password flow works even if the user is already logged in
+    if (pathname === '/auth/reset-password') {
+      console.log('Allowing access to reset-password page regardless of auth status');
+      return res;
+    }
   
     // Handle redirect for authenticated users trying to access auth pages
     if (hasValidSession && isAuthRoute) {

@@ -1,7 +1,7 @@
 import dynamic from 'next/dynamic';
 
 // Use dynamic import with no SSR to avoid build errors
-const DynamicResetPasswordPage = dynamic(
+const DynamicChangePasswordPage = dynamic(
   () => import('@/components/auth/ResetPasswordForm'),
   {
     ssr: false,
@@ -18,6 +18,6 @@ const DynamicResetPasswordPage = dynamic(
   }
 );
 
-export default function ResetPasswordPage() {
-  return <DynamicResetPasswordPage />;
+export default function ChangePasswordPage() {
+  return <DynamicChangePasswordPage />;
 } 

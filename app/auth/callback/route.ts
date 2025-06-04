@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     
     try {
+      console.log('Processing password recovery flow with code');
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       
       if (error) {
@@ -38,8 +39,50 @@ export async function GET(request: NextRequest) {
       
       // Successful code exchange for password reset - redirect to reset page
       // Add 'from=reset' to indicate this is from a password reset flow
-      console.log('Redirecting to password reset page');
-      return NextResponse.redirect(`${requestUrl.origin}/auth/reset-password?from=reset`);
+      console.log('Successfully exchanged password reset code for session, redirecting to reset password page');
+      
+      // Set strong bypass cookies to ensure we reach the reset password page
+      const response = NextResponse.redirect(`${requestUrl.origin}/auth/change-password?from=reset`);
+      
+      // Set a cookie to indicate this is a reset flow
+      response.cookies.set('password_reset_flow', 'true', {
+        maxAge: 600, // 10 minutes
+        path: '/',
+        sameSite: 'lax'
+      });
+      
+      // Set bypass cookies to prevent redirects by middleware
+      response.cookies.set('bypass_reset_redirect', 'true', {
+        maxAge: 600, // 10 minutes
+        path: '/',
+        sameSite: 'lax'
+      });
+      
+      // Prevent redirect loops
+      response.cookies.set('prevent_auth_redirect', 'true', {
+        maxAge: 600, // 10 minutes
+        path: '/',
+        sameSite: 'lax'
+      });
+      
+      // Log the redirection for debugging
+      console.log('Redirecting to reset password page with bypass cookies set');
+      
+      // Store the user's email in session for the reset password page to use if needed
+      try {
+        const user = await supabase.auth.getUser();
+        if (user?.data?.user?.email) {
+          response.cookies.set('reset_user_email', user.data.user.email, {
+            maxAge: 600, // 10 minutes
+            path: '/',
+            sameSite: 'lax'
+          });
+        }
+      } catch (e) {
+        console.error('Error getting user email:', e);
+      }
+      
+      return response;
       
     } catch (error) {
       console.error('Exception during recovery flow:', error);
