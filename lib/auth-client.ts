@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { logger } from './logger';
 
 /**
  * Checks if a user is currently logged in
@@ -24,7 +25,7 @@ export async function getUser() {
  */
 export async function getSession() {
   try {
-    console.log('Getting session...');
+    logger.info('Getting session...');
     const { data, error } = await supabase.auth.getSession();
     
     if (error) {
@@ -161,7 +162,7 @@ export async function signUp(email: string, password: string, userData: object =
  */
 export async function resetPassword(email: string, redirectTo: string) {
   try {
-    console.log(`Requesting password reset for ${email} with redirect to ${redirectTo}`);
+    logger.info(`Requesting password reset for ${email} with redirect to ${redirectTo}`);
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo,
     });
@@ -185,7 +186,7 @@ export async function resetPassword(email: string, redirectTo: string) {
  */
 export async function updatePassword(newPassword: string) {
   try {
-    console.log('Updating password');
+    logger.info('Updating password');
     const { data, error } = await supabase.auth.updateUser({
       password: newPassword,
     });

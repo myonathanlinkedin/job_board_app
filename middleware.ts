@@ -1,6 +1,7 @@
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { logger } from './lib/logger';
 
 export async function middleware(request: NextRequest) {
   const res = NextResponse.next();
@@ -31,19 +32,19 @@ export async function middleware(request: NextRequest) {
   });
 
   if (isPublicPath) {
-    console.log('Middleware: Allowing access to public path:', pathname);
+    logger.debug('Middleware: Allowing access to public path', { pathname });
     return res;
   }
   
   // Skip middleware for browser DevTools requests
   if (pathname.includes('devtools') || pathname.includes('chrome-extension')) {
-    console.log('Middleware: Skipping DevTools request:', pathname);
+    logger.debug('Middleware: Skipping DevTools request', { pathname });
     return res;
   }
 
   // Check for error parameter in URL - never redirect a URL with error parameter
    if (searchParams.has('error') || searchParams.has('error_code') || searchParams.has('error_description')) {
-     console.log('Middleware: Error parameter found in URL, bypassing middleware redirect');
+     logger.debug('Middleware: Error parameter found in URL');
      // Clear redirect counters if landing on an error page to break loops
      const response = NextResponse.next();
      response.cookies.delete('auth_redirect_count');
@@ -75,11 +76,11 @@ export async function middleware(request: NextRequest) {
   const isInPasswordResetFlow = isInitialRecoveryFlowUrl || isCallbackRecovery || isPasswordResetFlowCookie;
 
   if (isInPasswordResetFlow) {
-    console.log('Middleware: Detected potential or active password recovery flow.');
+    logger.debug('Middleware: Password recovery flow detected');
 
     // If the user is already on the change-password page as part of a reset flow, allow access
     if (pathname === '/auth/change-password') {
-       console.log('Middleware: Allowing access to change-password page within reset flow.');
+       logger.debug('Middleware: Allowing access to change-password page');
        // Clear general auth redirect cookies when allowing access to reset page
        const response = NextResponse.next();
        // Aggressively clear general auth redirect cookies that might interfere
@@ -97,7 +98,7 @@ export async function middleware(request: NextRequest) {
     // If it's a potential recovery flow URL and not on the change-password page, force redirect
     // Only set cookies and redirect if it's an initial recovery URL, not just based on a stale cookie
     if (isInitialRecoveryFlowUrl) {
-         console.log('Middleware: Initial recovery flow URL detected, forcing redirect to change-password.');
+         logger.debug('Middleware: Initial recovery flow URL detected');
          const response = NextResponse.redirect(`${requestUrl.origin}/auth/change-password?from=reset` + 
              (code ? `&code=${code}` : '') + 
              (token ? `&token=${token}` : '')
@@ -117,7 +118,7 @@ export async function middleware(request: NextRequest) {
 
     // If we are in the password reset flow based *only* on a cookie (not URL), and not on the change-password page,
     // it might be a stale cookie. Let the general auth flow handle it, and clear the reset cookies.
-    console.log('Middleware: Stale password reset cookie detected, clearing and proceeding.');
+    logger.debug('Middleware: Stale password reset cookie detected');
     const response = NextResponse.next();
     response.cookies.delete('password_reset_flow');
     response.cookies.delete('bypass_reset_redirect');
@@ -135,9 +136,7 @@ export async function middleware(request: NextRequest) {
   // Check if session exists. Rely on getSession for authoritative check.
   const hasValidSession = !!session;
 
-  console.log('Middleware: General Auth Check - Path:', pathname, 
-              'Session exists:', !!session, 
-              'Session Error:', !!sessionError);
+  logger.debug('Middleware: Auth check', { pathname });
 
   // Protected routes that require authentication
   const protectedRoutes = ['/dashboard', '/jobs/new', '/profile'];
@@ -149,7 +148,7 @@ export async function middleware(request: NextRequest) {
 
   // If user has a valid session and is trying to access an auth route
   if (hasValidSession && isAuthRoute) {
-    console.log('Middleware: User is authenticated and trying to access auth page, redirecting to dashboard.');
+    logger.debug('Middleware: Authenticated user accessing auth page');
     const response = NextResponse.redirect(new URL('/dashboard', request.url));
     // Explicitly delete all relevant cookies to ensure no lingering state causes redirects
     response.cookies.delete('auth_redirect_count');
@@ -165,11 +164,11 @@ export async function middleware(request: NextRequest) {
 
   // If user does NOT have a valid session and is trying to access a protected route
   if (!hasValidSession && isProtectedRoute) {
-    console.log('DEBUG: User is unauthenticated and trying to access protected route.');
+    logger.debug('Middleware: Unauthenticated user accessing protected route');
     console.log('DEBUG: Cookies received:', request.cookies.getAll());
     console.log('DEBUG: Session from Supabase:', session);
     let redirectCount = parseInt(request.cookies.get('auth_redirect_count')?.value || '0', 10);
-    console.log('DEBUG: Redirect count:', redirectCount);
+    logger.debug('Middleware: Redirect count', { count: redirectCount });
     // TEMPORARY: Instead of redirecting, show a debug message and allow access
     return res;
     /*
@@ -205,7 +204,7 @@ export async function middleware(request: NextRequest) {
   
   // Clear redirect counter if successfully accessing a protected page after potential redirects
    if (hasValidSession && isProtectedRoute) {
-       console.log('Middleware: Successfully accessed protected route with valid session. Clearing redirect counter and bypass cookies.');
+       logger.debug('Middleware: Successfully accessed protected route');
        const response = NextResponse.next();
        response.cookies.delete('auth_redirect_count');
        response.cookies.delete('prevent_auth_redirect');
@@ -214,7 +213,7 @@ export async function middleware(request: NextRequest) {
    }
 
   // Allow the request to proceed if no redirects were issued
-  console.log('Middleware: No redirect necessary. Proceeding to page.');
+  logger.debug('Middleware: No redirect necessary');
   return res;
 }
 

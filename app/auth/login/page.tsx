@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Icons } from '@/components/ui/Icons';
 import * as auth from '@/lib/auth-client';
+import { logger } from '../../../lib/logger';
 
 // Create a session storage key for redirect count
 const REDIRECT_COUNT_KEY = 'auth_redirect_count';
@@ -38,7 +39,7 @@ export default function LoginPage() {
           // If we're already at the login page with an error param, don't redirect
           const url = new URL(window.location.href);
           if (url.searchParams.has('error')) {
-            console.log('Found error in URL, breaking redirect loop');
+            logger.debug('Error parameter detected in URL');
             sessionStorage.removeItem(REDIRECT_COUNT_KEY);
             return;
           }
@@ -46,7 +47,7 @@ export default function LoginPage() {
           // Check for loop detection parameter
           const preventRedirect = sessionStorage.getItem('prevent_auth_redirect');
           if (preventRedirect === 'true') {
-            console.log('Redirect prevention active, clearing auth redirect counter');
+            logger.debug('Redirect prevention active');
             sessionStorage.removeItem(REDIRECT_COUNT_KEY);
             sessionStorage.removeItem('prevent_auth_redirect');
             return;
@@ -74,6 +75,7 @@ export default function LoginPage() {
         
         const session = await auth.getSession();
         if (session) {
+          logger.debug('User session detected');
           console.log('User already has a session, redirecting to dashboard or requested page');
           
           // Hard navigation to dashboard - most reliable approach
@@ -121,7 +123,7 @@ export default function LoginPage() {
       setError(null);
       
       // Debug info
-      console.log('Attempting login with email:', email);
+      logger.info('Login attempt initiated');
       
       // Reset all redirect counters and flags
       if (typeof window !== 'undefined') {
@@ -132,7 +134,7 @@ export default function LoginPage() {
       
       // Sign in using our helper
       const data = await auth.signIn(email, password, redirect);
-      console.log('Login successful:', data);
+      logger.info('Login successful');
       
       if (data?.session) {
         setAuthData({

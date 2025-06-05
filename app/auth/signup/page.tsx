@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icons } from '@/components/ui/Icons';
 import * as auth from '@/lib/auth-client';
+import { logger } from '../../../lib/logger';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -22,7 +23,7 @@ export default function SignupPage() {
       try {
         const session = await auth.getSession();
         if (session) {
-          console.log('User already has a session, redirecting to dashboard');
+          logger.debug('User session detected, redirecting to dashboard');
           router.push('/dashboard');
         }
       } catch (err) {
@@ -46,14 +47,14 @@ export default function SignupPage() {
       setError(null);
       
       // Debug info
-      console.log('Attempting signup with:', { email, fullName });
+      logger.info('Signup attempt initiated');
       
       // Sign up using our helper
       const data = await auth.signUp(email, password, { full_name: fullName });
-      console.log('Signup response:', data);
+      logger.info('Signup successful');
 
       if (data?.user) {
-        console.log('User created successfully:', data.user);
+        logger.info('User created successfully:', data.user);
         
         // Some Supabase configurations require email confirmation
         if (data.user.identities?.[0]?.identity_data?.email_verified) {

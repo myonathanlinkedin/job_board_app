@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { Icons } from '@/components/ui/Icons';
+import { logger } from '../../lib/logger';
 
 export default function ResetPasswordForm() {
   const [password, setPassword] = useState('');
@@ -20,13 +21,14 @@ export default function ResetPasswordForm() {
 
   useEffect(() => {
     async function checkSession() {
-      console.log('ResetPasswordForm: Checking session on mount');
+      logger.debug('ResetPasswordForm: Checking session on mount');
       try {
         // Get current session
         const { data, error } = await supabase.auth.getSession();
 
-        console.log('ResetPasswordForm: Supabase getSession data:', data);
-        console.log('ResetPasswordForm: Supabase getSession error:', error);
+        logger.debug('ResetPasswordForm: Supabase getSession data:', data);
+        logger.debug('ResetPasswordForm: Supabase getSession error:', error);
+        logger.debug('ResetPasswordForm: Session check completed', { hasSession: !!data });
 
         // Check for specific cookies that indicate a reset flow
         const cookies = document.cookie.split(';').reduce((acc, cookie) => {
@@ -34,35 +36,35 @@ export default function ResetPasswordForm() {
           acc[name] = value;
           return acc;
         }, {} as Record<string, string>);
-        console.log('ResetPasswordForm: Browser cookies:', cookies);
-        console.log('ResetPasswordForm: Raw document.cookie:', document.cookie);
+        logger.debug('ResetPasswordForm: Browser cookies:', cookies);
+        logger.debug('ResetPasswordForm: Raw document.cookie:', document.cookie);
 
         const fromReset = searchParams.has('from') && searchParams.get('from') === 'reset';
-        console.log('ResetPasswordForm: from=reset param:', fromReset);
+        logger.debug('ResetPasswordForm: from=reset param:', fromReset);
         const passwordResetFlowCookie = cookies['password_reset_flow'] === 'true';
-        console.log('ResetPasswordForm: password_reset_flow cookie:', passwordResetFlowCookie);
+        logger.debug('ResetPasswordForm: password_reset_flow cookie:', passwordResetFlowCookie);
 
         if (data.session) {
-          console.log('ResetPasswordForm: Valid Supabase session found.');
+          logger.debug('ResetPasswordForm: Valid Supabase session found.');
           setValidSession(true);
 
           // Important: If any reset flow indicators are present, treat it as a password reset flow
           // regardless of whether the user was already logged in or not
           if (fromReset || passwordResetFlowCookie) {
-            console.log('ResetPasswordForm: Password reset flow detected based on params/cookies.');
+            logger.debug('ResetPasswordForm: Password reset flow detected based on params/cookies.');
             setIsChangePassword(false); // Do NOT require old password
           } else {
             // Regular change password flow (user is logged in and navigates here directly)
-            console.log('ResetPasswordForm: Regular change password flow detected.');
+            logger.debug('ResetPasswordForm: Regular change password flow detected.');
             setIsChangePassword(true);
           }
         } else {
-          console.log('ResetPasswordForm: No valid Supabase session found.');
+          logger.debug('ResetPasswordForm: No valid Supabase session found.');
           setError('Please use the reset link from your email to access this page.');
           setValidSession(false);
         }
       } catch (err) {
-        console.error('ResetPasswordForm: Error checking session:', err);
+        logger.error('ResetPasswordForm: Error checking session:', err);
         setError('An error occurred. Please try again.');
         setValidSession(false);
       }
@@ -97,7 +99,7 @@ export default function ResetPasswordForm() {
       setLoading(true);
       setError(null);
       
-      console.log('Updating password...');
+      logger.info('Password update initiated');
       const { error } = await supabase.auth.updateUser({ password });
       
       if (error) {
@@ -130,7 +132,7 @@ export default function ResetPasswordForm() {
       
     } catch (error: any) {
       setError(error.message || 'Failed to update password');
-      console.error('Password reset error:', error);
+      logger.error('Password reset error:', error);
     } finally {
       setLoading(false);
     }
