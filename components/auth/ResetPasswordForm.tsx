@@ -233,16 +233,14 @@ export default function ResetPasswordForm() {
                 </button>
               </div>
               
-              {isChangePassword && (
-                <div className="text-center mt-4">
-                  <Link 
-                    href="/dashboard" 
-                    className="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400"
-                  >
-                    Cancel and return to dashboard
-                  </Link>
-                </div>
-              )}
+              <div className="text-center mt-4">
+                <Link 
+                  href="/dashboard" 
+                  className="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400"
+                >
+                  Cancel and return to dashboard
+                </Link>
+              </div>
             </form>
           ) : (
             <div className="text-center">
