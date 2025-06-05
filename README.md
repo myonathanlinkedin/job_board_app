@@ -39,7 +39,7 @@ job_board_app/
 │   ├── employers/                      # Employer pages
 │   │   └── page.tsx                    # Employers info page
 │   ├── jobs/                           # Job listing pages
-│   │   ├── [id]/                       # Individual job display
+│   │   ├── [id]/
 │   │   │   ├── layout.tsx              # Job detail layout
 │   │   │   └── page.tsx                # Job detail page
 │   │   ├── JobsListing.tsx             # Jobs list component
@@ -56,12 +56,20 @@ job_board_app/
 │       ├── __tests__/                  # Component tests
 │       │   ├── JobCard.test.tsx        # Tests for JobCard
 │       │   └── ThemeProvider.test.tsx  # Tests for ThemeProvider
+│       ├── DeleteDialog.tsx            # Generic delete confirmation dialog
 │       ├── Icons.tsx                   # SVG icon components
 │       ├── JobCard.tsx                 # Job card component
 │       ├── Navbar.tsx                  # Navigation bar
 │       ├── ThemeProvider.tsx           # Theme context provider
 │       ├── ThemeToggle.tsx             # Dark/light mode toggle
 │       └── Toast.tsx                   # Toast notifications component
+├── domains/                            # Domain-specific logic
+│   └── job/
+│       ├── application/
+│       │   └── dtos.ts                 # Data Transfer Objects
+│       └── domain/
+│           ├── entities.ts             # Domain entities
+│           └── value-objects.ts        # Value objects
 ├── lib/                                # Utility functions
 │   ├── auth-client.ts                  # Client-side auth utilities
 │   ├── auth.ts                         # Server-side auth utilities
